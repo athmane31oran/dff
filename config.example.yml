@@ -1,0 +1,3 @@
+auth:
+    fb_user: 'username_or_email_or_phone'
+    fb_pass: 'password'
