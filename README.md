@@ -27,4 +27,5 @@ Ajouter les informations de conenxion au compte facebook
 auth:
     fb_user: 'foulan.foulani'
     fb_pass: 'password'
+base_url:'https://www.facebook.com'
 ```
