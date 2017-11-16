@@ -1,5 +1,6 @@
 *.log
 *config.yml
+*.pyc
 .ipynb_checkpoints
 data
 other
