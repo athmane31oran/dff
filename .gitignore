@@ -1,9 +1,5 @@
-chromedriver_linux64.zip
-images
-screenshots
-*.csv
 *.log
 *config.yml
 .ipynb_checkpoints
-athmane.oran
-Untitled*
+data
+other
