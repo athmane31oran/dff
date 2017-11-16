@@ -1,4 +1,17 @@
 auth:
     fb_user: 'username_or_email_or_phone'
     fb_pass: 'password'
+
 base_url: 'https://www.facebook.com/'
+
+# Folder to save data
+data_path: 'data'
+
+driver:
+    # Driver name, only chrome and firefox are supported for now
+    name: 'chrome'
+    # Use headless browser
+    headless: true
+    # Maximize screen
+    maximized: true
+    surpress_notifications: true
