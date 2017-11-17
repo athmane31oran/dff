@@ -4,6 +4,7 @@ from urllib import urlretrieve
 import re
 
 import yaml
+import pandas as pd
 import networkx as nx
 
 
@@ -18,23 +19,27 @@ def join_or_make(*args):
     return folder
 
 
-def get_args():
+def get_args(context='terminal'):
     """
         Parse les arguments passes par la ligne de commande et charge le fichier 
             de config
         Return: object les arguments passes
     """
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config_file", default='config.yml', help="Fichier de config")
-    args = parser.parse_args()
+    if context == 'terminal':
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--config_file", default='config.yml', help="Fichier de config")
+        args = parser.parse_args()
+        config_file = args.config_file
+        # TODO: should be changed if we need more params from terminal
+    else:
+        config_file = context
 
-    with open(args.config_file) as f:
-        args.config = yaml.safe_load(f)
+    with open(config_file) as f:
+        config = yaml.safe_load(f)
 
-    args.user_folder = join_or_make(args.config['data_path'], 
-        args.config['auth']['fb_user'])
+    config['user_folder'] = join_or_make(config['data_path'], config['auth']['fb_user'])
 
-    return args
+    return config
 
 
 def get_fb_id_from_url(url):
@@ -79,6 +84,18 @@ def save_photos(data, dest_path, suffix=''):
         urlretrieve(img_src, path.join(dest_path, item['id'] + suffix + ".jpg"))
 
 
+def save_friends_data(friends_data, dest_path):
+    """ 
+    Construit un DataFrame et enregistre les donnees en csv
+    Args:   list friends_data = liste des donnees des amis
+            string dest_path = dossier destination
+    Return DataFrame donnees des amis
+    """
+    df = pd.DataFrame(friends_data)    
+    df.to_csv(path.join(dest_path, 'friends.csv'), encoding='utf-8')
+    return df
+
+
 def construct_social_graph(user_id, friends_data):
     # Create empty graph
     G = nx.Graph()
@@ -86,5 +103,9 @@ def construct_social_graph(user_id, friends_data):
     G.add_node(user_id)
     for friend in friends_data:
         G.add_node(friend['id'])
-        G.add_edge(user_id, friend['id'])    
-    return nx.info(G)
+        G.add_edge(user_id, friend['id'])
+    
+    for friend in friends_data:
+        for mutual_friend in friend['mutual_friends']:
+            G.add_edge(friend['id'], mutual_friend)
+    return G

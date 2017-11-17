@@ -56,12 +56,12 @@ def login(driver, base_url, fb_user, fb_pass, dest_path):
     screenshots_path = join_or_make(dest_path, 'screnshots/')
     driver.get(base_url)
     try:
-        username = driver.find_element_by_name("email").send_keys(fb_user)
-        password = driver.find_element_by_name("pass").send_keys(fb_pass)
+        driver.find_element_by_name("email").send_keys(fb_user)
+        driver.find_element_by_name("pass").send_keys(fb_pass)
         driver.find_element_by_css_selector('#loginbutton input').click()
         driver.save_screenshot(path.join(screenshots_path, 'home-screenshot.png'))
         return True
-    except TimeoutException:
+    except Exception:
         print("Un probleme de connexion")
         return False
 
@@ -80,16 +80,31 @@ def get_friends(driver, friends_section_url):
     
     body = driver.find_element_by_css_selector('body') 
     next_section = None
+    old_height = -1
+    height = get_page_height(driver)
     try:
         # Scroll down to show all friends
-        while next_section is None:
+        while next_section is None and old_height != height:
             body.send_keys(Keys.END)
             next_section = get_section_next_to_friends_section(driver)
+            old_height = height
+            height = get_page_height(driver)
         # Return all friends blocks
         return driver.find_elements_by_css_selector('[data-testid="friend_list_item"]')
     except Exception:
         print("Unhandled error")
         return None
+
+
+def get_page_height(driver):
+    script = """
+    var body = document.body,
+    html = document.documentElement;
+    return Math.max( body.scrollHeight, body.offsetHeight, 
+        html.clientHeight, html.scrollHeight, html.offsetHeight );
+    """
+    return driver.execute_script(script)
+
 
 
 def make_friends_data(friends_blocks):
@@ -134,18 +149,6 @@ def make_friends_data(friends_blocks):
     return friends_data
 
 
-def save_friends_data(friends_data, dest_path):
-    """ 
-    Construit un DataFrame et enregistre les donnees en csv
-    Args:   list friends_data = liste des donnees des amis
-            string dest_path = dossier destination
-    Return DataFrame donnees des amis
-    """
-    df = pd.DataFrame(friends_data)    
-    df.to_csv(path.join(dest_path, 'friends.csv'), encoding='utf-8')
-    return df
-
-
 def get_user_about_section_info(driver):
     """
     Permet d'extraire les blocs HTML contenant la liste des amis
@@ -183,3 +186,36 @@ def get_user_photos(driver):
         photos.append({'id': block.get_attribute('id'), 'img_url': img_src})
         
     return photos
+
+def make_mutual_friends(driver, friend_url):
+    """"
+    Construie la liste des amis en communs
+    Args:
+        driver : le browser
+        url : le lien du compte ami
+    Retourne la liste des amis en commun
+    """
+    
+    if('profile.php' in friend_url):
+        mutual_friend_url = friend_url + '&sk=friends_mutual'
+    else:
+        mutual_friend_url = friend_url + '/friends_mutual'
+        
+    mutual_friends_blocs = get_friends(driver, mutual_friend_url)
+    mutual_friends = []
+    for mutual_friend in mutual_friends_blocs:
+        img_link = mutual_friend.find_element_by_css_selector('a')
+        try:
+            img = mutual_friend.find_element_by_css_selector('a > img')
+            # si cette instruction ne s'execute pas, cela veut dire
+            # que l'utilisateur est desactive
+        except Exception:
+            print('exception make_mutual_friends')
+            continue
+        id_url = img_link.get_attribute('data-hovercard')
+        if id_url is None or len(id_url) < 1:
+            continue
+        mutual_friend_id, _ = get_fb_id_from_url(id_url)
+        mutual_friends.append(mutual_friend_id)
+    
+    return mutual_friends
