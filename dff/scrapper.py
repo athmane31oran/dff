@@ -66,7 +66,7 @@ def login(driver, base_url, fb_user, fb_pass, dest_path):
         return False
 
 
-def get_friends(driver, friends_section_url):     
+def get_friends(driver, friends_section_url, friends_section='friends_all'):     
     """ 
     Permet d'extraire les blocs HTML contenant la liste des amis
     args:   driver = browser
@@ -78,7 +78,16 @@ def get_friends(driver, friends_section_url):
     if(driver.current_url != friends_section_url):
         driver.get(friends_section_url)
     
-    body = driver.find_element_by_css_selector('body') 
+    body = driver.find_element_by_css_selector('body')
+
+    selector = '[id="pagelet_timeline_medley_friends"] > div div:nth-of-type(2) a[aria-selected="true"]'
+    try:
+        selected_link = driver.find_element_by_css_selector(selector)
+    except Exception:
+        return None
+    if friends_section not in selected_link.get_attribute('href'):
+        return None
+
     next_section = None
     old_height = -1
     height = get_page_height(driver)
@@ -201,7 +210,10 @@ def make_mutual_friends(driver, friend_url):
     else:
         mutual_friend_url = friend_url + '/friends_mutual'
         
-    mutual_friends_blocs = get_friends(driver, mutual_friend_url)
+    mutual_friends_blocs = get_friends(driver, mutual_friend_url, friends_section='friends_mutual')
+    if mutual_friends_blocs is None:
+        return []
+
     mutual_friends = []
     for mutual_friend in mutual_friends_blocs:
         img_link = mutual_friend.find_element_by_css_selector('a')

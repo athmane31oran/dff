@@ -13,7 +13,7 @@ if __name__ == '__main__':
     # TODO: make all args accessible via dict notation
     driver = init_driver(conf['driver']['name'], conf['driver']['maximized'], 
         conf['driver']['headless'], conf['driver']['surpress_notifications'])
-    
+
     print('logging to FB account')
     logged_in = login(driver, conf['base_url'], conf['auth']['fb_user'],
         conf['auth']['fb_pass'], conf['user_folder'])
@@ -25,6 +25,9 @@ if __name__ == '__main__':
 
         print('extracting data from friends blocks')
         friends_data = make_friends_data(friends_blocks)
+        
+        for i, friend_data in enumerate(friends_data):
+            friends_data[i]['mutual_friends'] = make_mutual_friends(driver, friend_data['url'])
 
         print('Saving friends data')
         save_friends_data(friends_data, conf['user_folder'])
@@ -33,15 +36,20 @@ if __name__ == '__main__':
         save_photos(friends_data, join_or_make(conf['user_folder'], 'friends_photos'), 
             suffix='.thumb')
 
-        print('constructing the social graph of the account')
-        print(construct_social_graph(conf['auth']['fb_user'], friends_data))
-
         print('Getting About user info')
         print(get_user_about_section_info(driver))
-
+        
         photos = get_user_photos(driver)
 
         print('Getting photos available on photos section')
         save_photos(photos, join_or_make(conf['user_folder'], 'photos'))
+        
+        print('constructing the social graph of the account')
+        friends_graph = construct_social_graph(conf['auth']['fb_user'], friends_data)
+        print(nx.info(friends_graph))
+        
+        plt.figure(3, figsize=(15, 10)) 
+        plt.title('Graphe des amis')
+        nx.draw(friends_graph, with_labels=True)
     else:
         print "Couldn't login"
