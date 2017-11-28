@@ -1,30 +1,44 @@
 from os import path
 from urllib import urlretrieve
 import re
+import time
 
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+######################
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+######################
+
 
 from .webdrivers import init_driver
 from .helpers import get_fb_id_from_url, get_user_link, join_or_make
 
 
-def get_friends_section_url(driver, base_url):
+def get_profile_url(driver, page='home'):
     """ 
     Permet de recuperer l'url vers la section amis FB
     Args: driver = l'instance du browser
     Return l'url 
     """
     
-    profile_url = driver.find_element_by_css_selector('[title="Profile"]') \
+    return driver.find_element_by_css_selector('div[data-click="profile_icon"] > a') \
         .get_attribute('href')
-    user_id, id_type = get_fb_id_from_url(profile_url)    
-   
-    if id_type == 'username':
-        user_friends_url = profile_url + '/friends'
-    else:
-        user_friends_url = '%sprofile.php?id=%s&sk=friends' % (base_url, user_id)
-        
-    return user_friends_url
+
+
+def get_profile_name(driver, page='home'):
+    """ 
+    Permet de recuperer l'url vers la section amis FB
+    Args: driver = l'instance du browser
+    Return l'url 
+    """
+    
+    if page == 'home':
+        return driver.find_element_by_css_selector('#userNav li > a') \
+            .get_attribute('title')
+    elif page == 'profile':
+        return driver.find_element_by_css_selector('#fb-timeline-cover-name > a') \
+            .text
 
 
 def get_section_next_to_friends_section(driver):
@@ -39,7 +53,8 @@ def get_section_next_to_friends_section(driver):
         try:
             return driver.find_element_by_css_selector(selector)
         except Exception:
-            return None
+            pass
+    return None
 
 
 def login(driver, base_url, fb_user, fb_pass, dest_path):
@@ -66,7 +81,7 @@ def login(driver, base_url, fb_user, fb_pass, dest_path):
         return False
 
 
-def get_friends(driver, friends_section_url, friends_section='friends_all'):     
+def get_friends(driver, friends_section_url, friends_section='all'):     
     """ 
     Permet d'extraire les blocs HTML contenant la liste des amis
     args:   driver = browser
@@ -80,30 +95,44 @@ def get_friends(driver, friends_section_url, friends_section='friends_all'):
     
     body = driver.find_element_by_css_selector('body')
 
-    selector = '[id="pagelet_timeline_medley_friends"] > div div:nth-of-type(2) a[aria-selected="true"]'
-    try:
-        selected_link = driver.find_element_by_css_selector(selector)
-    except Exception:
-        return None
-    if friends_section not in selected_link.get_attribute('href'):
-        return None
+    #Perhaps the problem came from the selector, try another one
+    #friends_selector = 'div[data-testid="friend_list_item"][data-pnref="%s"]' % friends_section
+    friends_selector = 'div[data-pnref="%s"]' % friends_section
 
     next_section = None
     old_height = -1
     height = get_page_height(driver)
+    #print('heights:', old_height, height)
     try:
         # Scroll down to show all friends
-        while next_section is None and old_height != height:
-            body.send_keys(Keys.END)
-            next_section = get_section_next_to_friends_section(driver)
+        #while next_section is None and old_height < height:
+
+        while next_section is None and (page_is_loading(body) or old_height < height):
+            print('scrolling')
             old_height = height
+            #body.send_keys(Keys.SPACE)
+            body.send_keys(Keys.END)
+            next_section = get_section_next_to_friends_section(body)
             height = get_page_height(driver)
+            #
         # Return all friends blocks
-        return driver.find_elements_by_css_selector('[data-testid="friend_list_item"]')
+        print('Quit while loop!')
+        return driver.find_elements_by_css_selector(friends_selector)
     except Exception:
         print("Unhandled error")
         return None
 
+def page_is_loading(driver):
+    try:
+        loading_img = WebDriverWait(driver, 2).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "img.img.async_saving")))
+        print('Loadin_img:True')
+        return True 
+    except Exception:
+        print('Loadin_img:False')
+        return False 
+    
+    
 
 def get_page_height(driver):
     script = """
@@ -138,7 +167,8 @@ def make_friends_data(friends_blocks):
         friend_data['name'] = img.get_attribute('aria-label')        
         friend_data['url'] = get_user_link(img_link.get_attribute('href'))
         friend_data['img_url'] = img.get_attribute('src')
-        friend_data['meta_text'] = friend.text
+        #This field seems to be inadequate
+        #friend_data['meta_text'] = friend.text
         
         try:
             friend_data['id'], _ = get_fb_id_from_url(
@@ -158,21 +188,26 @@ def make_friends_data(friends_blocks):
     return friends_data
 
 
-def get_user_about_section_info(driver):
+def get_user_about_section_info(driver, friends_section_url):
     """
     Permet d'extraire les blocs HTML contenant la liste des amis
     args:   driver = browser
     Retourne la liste des amis
     """
 
-    about_url = driver.find_element_by_css_selector('[data-tab-key="about"]') \
-        .get_attribute('href')        
-    driver.get(about_url)
+    if('profile.php' in friends_section_url):
+        contact_basic_url = friends_section_url + '&sk=about&section=contact-info'
+    else:
+        contact_basic_url = friends_section_url + '/about?section=contact-info'
+     
+    driver.get(contact_basic_url)
 
-    return driver \
-        .find_element_by_css_selector('[data-overviewsection="contact_basic"]') \
-        .text
+    contact_text = driver.find_element_by_id("pagelet_contact").text
+    basic_text = driver.find_element_by_id("pagelet_basic").text
 
+    #TODO: extract individual informations one by one
+
+    return contact_text , basic_text
 
 def get_user_photos(driver):
     """ 
@@ -205,13 +240,14 @@ def make_mutual_friends(driver, friend_url):
     Retourne la liste des amis en commun
     """
     
-    if('profile.php' in friend_url):
+    if 'profile.php' in friend_url:
         mutual_friend_url = friend_url + '&sk=friends_mutual'
     else:
         mutual_friend_url = friend_url + '/friends_mutual'
         
-    mutual_friends_blocs = get_friends(driver, mutual_friend_url, friends_section='friends_mutual')
+    mutual_friends_blocs = get_friends(driver, mutual_friend_url, friends_section='mutual')
     if mutual_friends_blocs is None:
+        print 'no mutual friends'
         return []
 
     mutual_friends = []
@@ -231,3 +267,22 @@ def make_mutual_friends(driver, friend_url):
         mutual_friends.append(mutual_friend_id)
     
     return mutual_friends
+
+def get_page_posts(driver):
+    """
+    BUG : does not work
+    """
+    #TODO: ajouter une date pour filtrer et limiter les posts 
+
+    #if(driver.current_url != page_url):
+    #    driver.get(page_url)
+
+    #css_posts_selector = 'div.userContentWrapper'
+
+    #page_posts = []
+
+    css_posts_selector = 'div[role="article"]'
+
+    timestamp = driver.find_elements_by_css_selector(css_posts_selector)
+    
+    print(timestamp.text)

@@ -1,5 +1,4 @@
 import argparse
-from os import path, makedirs
 from urllib import urlretrieve
 import re
 
@@ -17,6 +16,36 @@ def join_or_make(*args):
     if not path.exists(folder):
         makedirs(folder)
     return folder
+
+
+def extract_user_gender(text):
+    if 'Male' in text:
+        return 'Male'
+    elif 'Female' in text:
+        return 'Female'
+    return 'Undetermined'
+
+
+def save_user_infos(infos, dest_folder):
+    if 'profile_id' not in infos:
+        infos['profile_id'], _ = get_fb_id_from_url(infos['profile_url'])
+
+    if 'profile_gender' not in infos:
+        infos['gender'] = extract_user_gender(infos['basic_info'])
+
+    with open(path.join(dest_folder, 'infos.yml'), 'w') as outfile:
+        yaml.dump(infos, outfile, default_flow_style=False)
+
+
+def get_user_friends_url(base_url, profile_url):
+    user_id, id_type = get_fb_id_from_url(profile_url)    
+   
+    if id_type == 'username':
+        user_friends_url = profile_url + '/friends'
+    else:
+        user_friends_url = '%sprofile.php?id=%s&sk=friends' % (base_url, user_id)
+        
+    return user_friends_url
 
 
 def get_args(context='terminal'):
@@ -108,4 +137,7 @@ def construct_social_graph(user_id, friends_data):
     for friend in friends_data:
         for mutual_friend in friend['mutual_friends']:
             G.add_edge(friend['id'], mutual_friend)
+        if 'friends' in friend:
+            for ffriend in friend['friends']:
+                G.add_edge(friend['id'], ffriend['id'])
     return G
