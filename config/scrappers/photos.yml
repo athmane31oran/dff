@@ -1,0 +1,15 @@
+selectors:
+  img_link: 'a.uiMediaThumb._6i9.uiMediaThumbMedium'
+  img_i: 'i.uiMediaThumbImg'
+  # section next to friends section
+  next_section:
+    - '#pagelet_timeline_medley_music'
+    - '#pagelet_timeline_medley_books' 
+    - '#pagelet_timeline_medley_photos'
+    - '#pagelet_timeline_medley_videos'
+
+path: 'photos'
+
+download: true
+
+num_pages: 3

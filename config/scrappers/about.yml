@@ -1,0 +1,3 @@
+selectors:
+  basic_info: '#pagelet_contact ul'
+  contact_info: '#pagelet_basic ul'
