@@ -6,6 +6,9 @@ import re
 import yaml
 import pandas as pd
 import networkx as nx
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
 
 
 def join_or_make(*args):
@@ -40,6 +43,26 @@ def get_args(context='terminal'):
     config['user_folder'] = join_or_make(config['data_path'], config['auth']['fb_user'])
 
     return config
+
+
+def dict_merge(source, destination={}):
+    """
+    run me with nosetests --with-doctest file.py
+
+    >>> a = { 'first' : { 'all_rows' : { 'pass' : 'dog', 'number' : '1' } } }
+    >>> b = { 'first' : { 'all_rows' : { 'fail' : 'cat', 'number' : '5' } } }
+    >>> merge(b, a) == { 'first' : { 'all_rows' : { 'pass' : 'dog', 'fail' : 'cat', 'number' : '5' } } }
+    True
+    """
+    for key, value in source.items():
+        if isinstance(value, dict):
+            # get node or create one
+            node = destination.setdefault(key, {})
+            dict_merge(value, node)
+        else:
+            destination[key] = value
+
+    return destination
 
 
 def get_fb_id_from_url(url):
@@ -78,10 +101,15 @@ def save_photos(data, dest_path, suffix=''):
     Permet d enregistrer la photo thumbnail des amis
     args:  friends = la liste des blocs html des amis
     """
-
+    paths = []
+    join_or_make(dest_path)
     for item in data:
-        img_src = item['img_url']        
-        urlretrieve(img_src, path.join(dest_path, item['id'] + suffix + ".jpg"))
+        img_src = item['img_url']
+        img_path = path.join(dest_path, item['id'] + suffix + ".jpg")
+        urlretrieve(img_src, img_path)
+        paths.append(img_path)
+    return paths
+
 
 
 def save_friends_data(friends_data, dest_path):
@@ -109,3 +137,30 @@ def construct_social_graph(user_id, friends_data):
         for mutual_friend in friend['mutual_friends']:
             G.add_edge(friend['id'], mutual_friend)
     return G
+
+
+def get_page_height(driver):
+    script = """
+    var body = document.body,
+    html = document.documentElement;
+    return Math.max( body.scrollHeight, body.offsetHeight, 
+        html.clientHeight, html.scrollHeight, html.offsetHeight );
+    """
+    return driver.execute_script(script)
+
+def page_is_loading(driver):
+    try:
+        WebDriverWait(driver, 2).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "img.img.async_saving")))
+        return True 
+    except Exception:
+        return False
+
+def messages_loading(driver):
+    try:
+        WebDriverWait(driver, 2).until(
+            EC.presence_of_element_located((
+                By.CSS_SELECTOR, 'div[role="presentation"] i[area-busy="true"]')))
+        return True 
+    except Exception:
+        return False

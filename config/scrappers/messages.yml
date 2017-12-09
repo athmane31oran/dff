@@ -1,0 +1,7 @@
+selectors:
+  # target friend
+  friend: 'row_header_id_user:%s'
+  #messages_container
+  container: 'div[role="presentation"] div.uiScrollableArea'
+
+num_pages: 5

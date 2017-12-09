@@ -1,0 +1,4 @@
+selectors:
+  email: '#email'
+  password: '#pass'
+  submit: '#loginbutton input'
