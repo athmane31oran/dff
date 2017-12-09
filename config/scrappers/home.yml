@@ -1,5 +1,0 @@
-selectors:
-  profile:
-    id: '#userNav li'
-    name: 'a'
-    url: 'div[data-click="profile_icon"] > a'
